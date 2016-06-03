@@ -17,6 +17,16 @@ AC_PROG_CC
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h string.h sys/time.h unistd.h])
 
+# dnl our libraries and install dirs use GST_API_VERSION in the filename
+# dnl to allow side-by-side installation of different API versions
+GST_API_VERSION=1.0
+AC_SUBST(GST_API_VERSION)
+AC_DEFINE_UNQUOTED(GST_API_VERSION, "$GST_API_VERSION", [GStreamer API Version])
+
+GST_PLUGIN_PATH=gstreamer-${GST_API_VERSION}
+AC_SUBST(GST_PLUGIN_PATH)
+AC_DEFINE_UNQUOTED(GST_PLUGIN_PATH, "$GST_PLUGIN_PATH", [GStreamer PLUGIN Path])
+
 # checks for Argument Enable
 
 AC_ARG_WITH(

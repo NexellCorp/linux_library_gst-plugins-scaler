@@ -3,6 +3,7 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 AM_CFLAGS = \
 	$(WARN_CFLAGS) \
 	-I${includedir} \
+	-I${includedir}/${GST_PLUGIN_PATH} \
 	-I./ \
 	-I${EXTRAPATH_INCLUDE} \
 	-I${EXTRAPATH}/lib/glib-2.0/include \
