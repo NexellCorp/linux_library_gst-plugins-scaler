@@ -19,7 +19,5 @@ libgstnxscaler_la_SOURCES = \
 	gstnxscaler.c
 
 gstnxscalerincludedir = ${includedir}
-gstnxscalerinclude_HEADERS = \
-	gstnxscaler.h
-
+gstnxscalerinclude_HEADERS =
 
