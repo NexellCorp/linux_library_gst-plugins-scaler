@@ -10,7 +10,7 @@ AM_CFLAGS = \
 	-I${EXTRAPATH_INCLUDE}/gstreamer-1.0
 
 libgstnxscaler_la_LTLIBRARIES = libgstnxscaler.la
-libgstnxscaler_ladir = ${libdir}
+libgstnxscaler_ladir = ${libdir}/${GST_PLUGIN_PATH}
 libgstnxscaler_la_LDFLAGS = -L${libdir} -L${EXTRAPATH_LIB}
 libgstnxscaler_la_LIBADD = -lgstallocators-1.0 -lgstbase-1.0 -lgmodule-2.0 -lgobject-2.0 -lglib-2.0
 libgstnxscaler_la_LIBADD += -lnx_scaler -lnx_drm_allocator
