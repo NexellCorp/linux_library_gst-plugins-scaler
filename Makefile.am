@@ -19,4 +19,3 @@ libgstnxscaler_la_SOURCES = \
 
 gstnxscalerincludedir = ${includedir}
 gstnxscalerinclude_HEADERS =
-

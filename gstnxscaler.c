@@ -57,7 +57,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 
-#include <mm_types.h>
+#include "mm_types.h"
 
 #include "gstnxscaler.h"
 #include "nx-scaler.h"
