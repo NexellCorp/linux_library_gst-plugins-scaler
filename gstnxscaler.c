@@ -249,12 +249,12 @@ _create_buffer(GstNxScaler *scaler)
 			GST_ERROR_OBJECT(scaler,"failed to gem to dma %d", i);
 			return FALSE;
 		}
-
+		#if 0
 		if (get_vaddr(scaler->drm_fd, gem_fd, scaler->buffer_size, &vaddr)) {
 			GST_ERROR_OBJECT(scaler,"failed to get_vaddr %d", i);
 			return FALSE;
 		}
-
+		#endif
 		scaler->gem_fds[i] = gem_fd;
 		scaler->dma_fds[i] = dma_fd;
 		scaler->vaddrs[i] = vaddr;
