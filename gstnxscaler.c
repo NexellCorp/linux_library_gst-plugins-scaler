@@ -227,7 +227,7 @@ _create_buffer(GstNxScaler *scaler)
 	int drm_fd;
 	int gem_fd;
 	int dma_fd;
-	void *vaddr;
+	//void *vaddr;
 	int i;
 	GST_DEBUG_OBJECT(scaler, "_create_buffer \n");
 	drm_fd = open_drm_device();
@@ -257,7 +257,7 @@ _create_buffer(GstNxScaler *scaler)
 		#endif
 		scaler->gem_fds[i] = gem_fd;
 		scaler->dma_fds[i] = dma_fd;
-		scaler->vaddrs[i] = vaddr;
+		//scaler->vaddrs[i] = vaddr;
 	}
 	return TRUE;
 #endif
@@ -306,7 +306,7 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 	GstFlowReturn ret = GST_FLOW_OK;
 	MMVideoBuffer *mm_buf = NULL;
 	GstMemory *meta_data = NULL, *meta_block = NULL;
-	GstBuffer *buffer;
+	GstBuffer *buffer = NULL;
 	GstMapInfo info;
 	struct nx_scaler_context s_ctx;
 	if (gst_base_transform_is_passthrough (trans)) {
