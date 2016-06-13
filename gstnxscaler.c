@@ -155,8 +155,10 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
         guint32 src_y_stride = ALIGN(mm_buf->width[0], 32);
         guint32 src_c_stride = ALIGN(src_y_stride >> 1, 16);
 	guint32 dst_stride = ALIGN(scaler->dst_width,32);
-        guint32 dst_y_stride = ALIGN(dst_stride, 8);
-        guint32 dst_c_stride = ALIGN(dst_stride >> 1, 4);
+        guint32 dst_y_stride = ALIGN(scaler->dst_width, 8);
+        guint32 dst_c_stride = ALIGN(dst_y_stride >> 1, 4);
+        //guint32 dst_y_stride = ALIGN(dst_stride, 8);
+        //guint32 dst_c_stride = ALIGN(dst_stride >> 1, 4);
 	GstFlowReturn ret = GST_FLOW_ERROR;
 
 	GST_DEBUG_OBJECT(scaler,"_init_scale_context \n ");
@@ -348,6 +350,19 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 		scaler->flinks[scaler->buffer_index] = get_flink_name(scaler->drm_fd,
 							  scaler->gem_fds[scaler->buffer_index]);
 	}
+	mm_buf->width[0] = scaler->dst_width;
+	mm_buf->height[0] = scaler->dst_height;
+        mm_buf->size[0] = scaler->buffer_size;
+        /* FIXME: currently test only YUV420 format */
+        //mm_buf->plane_num = 3;
+        //mm_buf->format = MM_PIXEL_FORMAT_I420;
+        mm_buf->stride_width[0] = GST_ROUND_UP_32(scaler->dst_width);
+        mm_buf->stride_width[1] = GST_ROUND_UP_16(mm_buf->stride_width[0] >> 1);
+        mm_buf->stride_width[2] = mm_buf->stride_width[1];
+        mm_buf->stride_height[0] = GST_ROUND_UP_16(scaler->dst_height);
+        mm_buf->stride_height[1] = GST_ROUND_UP_16(scaler->dst_height >> 1);
+        mm_buf->stride_height[2] = mm_buf->stride_height[1];
+
 	mm_buf->handle.gem[0] = scaler->flinks[scaler->buffer_index];
 	mm_buf->handle_num = 1;
 	mm_buf->buffer_index = scaler->buffer_index;
@@ -410,8 +425,10 @@ gst_nxscaler_transform_start (GstBaseTransform *trans)
 	gboolean ret = TRUE;
 	GST_DEBUG_OBJECT(scaler,"gst_nxscaler_transform_start \n");
 	scaler->scaler_fd = scaler_open();
-	if (scaler->scaler_fd < 0)
+	if (scaler->scaler_fd < 0) {
 		GST_ERROR_OBJECT(scaler, "failed to open scaler");
+		return FALSE;
+	}
 	scaler->buffer_count = DEF_BUFFER_COUNT;
 	scaler->buffer_size = _calc_alloc_size(scaler->dst_width, scaler->dst_height);
 	GST_DEBUG_OBJECT(scaler,"buffer_size = %d \n", scaler->buffer_size);
