@@ -154,11 +154,8 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
 {
         guint32 src_y_stride = ALIGN(mm_buf->width[0], 32);
         guint32 src_c_stride = ALIGN(src_y_stride >> 1, 16);
-	guint32 dst_stride = ALIGN(scaler->dst_width,32);
         guint32 dst_y_stride = ALIGN(scaler->dst_width, 8);
         guint32 dst_c_stride = ALIGN(dst_y_stride >> 1, 4);
-        //guint32 dst_y_stride = ALIGN(dst_stride, 8);
-        //guint32 dst_c_stride = ALIGN(dst_stride >> 1, 4);
 	GstFlowReturn ret = GST_FLOW_ERROR;
 
 	GST_DEBUG_OBJECT(scaler,"_init_scale_context \n ");
@@ -199,7 +196,7 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
         scaler_ctx->dst_stride[0] = dst_y_stride;
         scaler_ctx->dst_stride[1] = dst_c_stride;
         scaler_ctx->dst_stride[2] = dst_c_stride;
-        GST_DEBUG_OBJECT(scaler, "src_dma_fd:%d, dst_dma_fd:%d, crop_x:%d, crop_y:%d, crop_width:%d, crop_height: %d, src_width: %d, src_height: %d, plane_num: %d, dst_width: %d, dst_height: %d",
+        GST_DEBUG_OBJECT(scaler, "src_dma_fd:%d, dst_dma_fd:%d,crop_x:%d, crop_y:%d, crop_width:%d, crop_height: %d, src_width: %d, src_height: %d, plane_num: %d, dst_width: %d, dst_height: %d",
 			scaler_ctx->src_fds[0], scaler_ctx->dst_fds[0],
 			scaler_ctx->crop.x, scaler_ctx->crop.y,
 			scaler_ctx->crop.width, scaler_ctx->crop.height,
@@ -326,8 +323,7 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 		goto beach;
 	}
 	memset(mm_buf, 0, sizeof(*mm_buf));
-
-	memcpy(mm_buf,(MMVideoBuffer*)info.data,info.size);
+	memcpy(mm_buf, (MMVideoBuffer*)info.data, info.size);
 	if (!mm_buf) {
 		GST_ERROR_OBJECT(scaler, "failed to get MMVideoBuffer !");
 		goto beach;
@@ -335,7 +331,7 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
                 GST_DEBUG_OBJECT(scaler, "get MMVideoBuffer");
 	}
 
-	ret = _init_scale_context(scaler,mm_buf,&s_ctx);
+	ret = _init_scale_context(scaler, mm_buf, &s_ctx);
 	if (ret != GST_FLOW_OK) {
 		GST_ERROR_OBJECT(scaler, "set scale context fail");
 		goto beach;
@@ -354,15 +350,23 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 	mm_buf->height[0] = scaler->dst_height;
         mm_buf->size[0] = scaler->buffer_size;
         /* FIXME: currently test only YUV420 format */
-        //mm_buf->plane_num = 3;
-        //mm_buf->format = MM_PIXEL_FORMAT_I420;
+        mm_buf->plane_num = 3;
+        mm_buf->format = MM_PIXEL_FORMAT_I420;
+	#if 0
         mm_buf->stride_width[0] = GST_ROUND_UP_32(scaler->dst_width);
         mm_buf->stride_width[1] = GST_ROUND_UP_16(mm_buf->stride_width[0] >> 1);
         mm_buf->stride_width[2] = mm_buf->stride_width[1];
         mm_buf->stride_height[0] = GST_ROUND_UP_16(scaler->dst_height);
         mm_buf->stride_height[1] = GST_ROUND_UP_16(scaler->dst_height >> 1);
         mm_buf->stride_height[2] = mm_buf->stride_height[1];
-
+	#else
+        mm_buf->stride_width[0] = s_ctx.dst_stride[0];
+        mm_buf->stride_width[1] = s_ctx.dst_stride[1];
+        mm_buf->stride_width[2] = s_ctx.dst_stride[2];
+        mm_buf->stride_height[0] = GST_ROUND_UP_16(scaler->dst_height);
+        mm_buf->stride_height[1] = GST_ROUND_UP_16(scaler->dst_height >> 1);
+        mm_buf->stride_height[2] = mm_buf->stride_height[1];
+	#endif
 	mm_buf->handle.gem[0] = scaler->flinks[scaler->buffer_index];
 	mm_buf->handle_num = 1;
 	mm_buf->buffer_index = scaler->buffer_index;
@@ -389,11 +393,11 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 		GST_ERROR_OBJECT(scaler, "failed to get copy data ");
 		goto beach;
 	} else {
-		GST_DEBUG_OBJECT(scaler, "gst_buffer = 0x%x, meta_data = 0x%x,meta_data_size = %d  \n", buffer, meta_data, sizeof(MMVideoBuffer));
+		GST_DEBUG_OBJECT(scaler, "gst_buffer = 0x%x, meta_data = 0x%x, meta_data_size = %d \n",
+		buffer, meta_data, sizeof(MMVideoBuffer));
 		gst_buffer_append_memory(buffer,meta_data);
 	}
 	*outbuf = buffer;
-
 	if (ret != GST_FLOW_OK)
 		GST_ERROR_OBJECT(scaler, "ERROR \n");
 	GST_DEBUG_OBJECT(scaler, "Input Memory Buffer Unmap \n");
