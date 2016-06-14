@@ -56,6 +56,7 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
+#include <media-bus-format.h>
 
 #include "mm_types.h"
 
@@ -182,7 +183,7 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
         scaler_ctx->src_plane_num = 1;
         scaler_ctx->src_width = mm_buf->width[0];
         scaler_ctx->src_height = mm_buf->height[0];
-        scaler_ctx->src_code = mm_buf->format;
+        scaler_ctx->src_code = MEDIA_BUS_FMT_YUYV8_2X8;
 
         scaler_ctx->src_stride[0] = src_y_stride;
         scaler_ctx->src_stride[1] = src_c_stride;
@@ -191,7 +192,7 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
         scaler_ctx->dst_plane_num = 1;
         scaler_ctx->dst_width = scaler->dst_width;
 	scaler_ctx->dst_height = scaler->dst_height;
-        scaler_ctx->dst_code = mm_buf->format;
+        scaler_ctx->dst_code = MEDIA_BUS_FMT_YUYV8_2X8;
 
         scaler_ctx->dst_stride[0] = dst_y_stride;
         scaler_ctx->dst_stride[1] = dst_c_stride;
