@@ -471,7 +471,7 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 	gobject_class->get_property = gst_nx_scaler_get_property;
 
 	g_object_class_install_property(gobject_class, ARG_SCALER_CROP_X,
-					g_param_spec_uint("scaler_crop_x",
+					g_param_spec_uint("scaler-crop-x",
 							  "Crop X",
 							  "X value for crop",
 							  0,
@@ -480,7 +480,7 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 							  G_PARAM_READWRITE));
 
 	g_object_class_install_property(gobject_class, ARG_SCALER_CROP_Y,
-					g_param_spec_uint("scaler_crop_y",
+					g_param_spec_uint("scaler-crop-y",
 							  "Crop Y",
 							  "Y value for crop",
 							  0,
@@ -488,7 +488,7 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 							  0,
 							  G_PARAM_READWRITE));
 	g_object_class_install_property(gobject_class, ARG_SCALER_CROP_WIDTH,
-					g_param_spec_uint("scaler_crop_width",
+					g_param_spec_uint("scaler-crop-width",
 							  "Crop WIDTH",
 							  "WIDTH value for crop",
 							  0,
@@ -497,7 +497,7 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 							  G_PARAM_READWRITE));
 
 	g_object_class_install_property(gobject_class, ARG_SCALER_CROP_HEIGHT,
-					g_param_spec_uint("scaler_crop_height",
+					g_param_spec_uint("scaler-crop-height",
 							  "Crop HEIGHT",
 							  "HEIGHT value for crop",
 							  0,
@@ -506,7 +506,7 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 							  G_PARAM_READWRITE));
 
 	g_object_class_install_property(gobject_class, ARG_SCALER_DST_WIDTH,
-					g_param_spec_uint("scaler_dst_width",
+					g_param_spec_uint("scaler-dst-width",
 							  "dst WIDTH",
 							  "WIDTH value for display",
 							  0,
@@ -515,7 +515,7 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 							  G_PARAM_READWRITE));
 
 	g_object_class_install_property(gobject_class, ARG_SCALER_DST_HEIGHT,
-					g_param_spec_uint("scaler_dst_height",
+					g_param_spec_uint("scaler-dst-height",
 							  "dst HEIGHT",
 							  "HEIGHT value for display",
 							  0,
@@ -545,7 +545,7 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 /* initialize the new element
  * instantiate pads and add them to element
  * set pad calback functions
- * initialize instance structure
+ * initialize instance structure:
  */
 static void
 gst_nx_scaler_init (GstNxScaler * scaler)
@@ -636,7 +636,29 @@ static void
 gst_nx_scaler_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec)
 {
+	GstNxScaler *scaler = GST_NXSCALER (object);
+
+	GST_INFO_OBJECT(scaler, "gst_nx_scaler_get_property ");
+
 	switch (prop_id) {
+        case ARG_SCALER_CROP_X:
+               g_value_set_uint(value, scaler->crop_x);
+                break;
+        case ARG_SCALER_CROP_Y:
+               g_value_set_uint(value, scaler->crop_y);
+                break;
+        case ARG_SCALER_CROP_WIDTH:
+               g_value_set_uint(value, scaler->crop_width);
+                break;
+        case ARG_SCALER_CROP_HEIGHT:
+               g_value_set_uint(value, scaler->crop_height);
+                break;
+        case ARG_SCALER_DST_WIDTH:
+               g_value_set_uint(value, scaler->dst_width);
+                break;
+        case ARG_SCALER_DST_HEIGHT:
+               g_value_set_uint(value, scaler->dst_height);
+                break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
