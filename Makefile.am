@@ -7,7 +7,8 @@ AM_CFLAGS = \
 	-I${EXTRAPATH_INCLUDE} \
 	-I${EXTRAPATH}/lib/glib-2.0/include \
 	-I${EXTRAPATH_INCLUDE}/glib-2.0 \
-	-I${EXTRAPATH_INCLUDE}/gstreamer-1.0
+	-I${EXTRAPATH_INCLUDE}/gstreamer-1.0 \
+	-I${libdir}/gstreamer-${GST_API_VERSION}/include
 
 libgstnxscaler_la_LTLIBRARIES = libgstnxscaler.la
 libgstnxscaler_ladir = ${libdir}/${GST_PLUGIN_PATH}
