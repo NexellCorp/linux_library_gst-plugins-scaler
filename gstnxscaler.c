@@ -509,7 +509,7 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 	GstNxScaler *scaler = GST_NXSCALER(trans);
 	GstFlowReturn ret = GST_FLOW_OK;
 	MMVideoBuffer *mm_buf = NULL;
-	GstMemory *meta_data = NULL, *meta_block = NULL;
+	GstMemory *meta_data = NULL, *meta_block = NULL, *dummy_data = NULL;
 	GstBuffer *buffer = NULL;
 	GstMapInfo info;
 	struct nx_scaler_context s_ctx;
@@ -601,6 +601,23 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 		buffer, meta_data, sizeof(MMVideoBuffer));
 		gst_buffer_append_memory(buffer,meta_data);
 	}
+	dummy_data = gst_memory_new_wrapped(GST_MEMORY_FLAG_READONLY,
+		mm_buf,
+		sizeof(MMVideoBuffer),
+		0,
+		sizeof(MMVideoBuffer),
+		mm_buf,
+		NULL);
+	if (!dummy_data) {
+		GST_ERROR_OBJECT(scaler, "failed to get dummy data ");
+		goto beach;
+	} else {
+		GST_DEBUG_OBJECT(scaler, "gst_buffer = 0x%x, dummy_data = 0x%x, dummy_data_size = %d \n",
+		buffer, dummy_data, sizeof(MMVideoBuffer));
+		gst_buffer_append_memory(buffer,dummy_data);
+	}
+	// set time info
+	GST_BUFFER_PTS(buffer) = GST_BUFFER_PTS(inbuf);
 	*outbuf = buffer;
 	if (ret != GST_FLOW_OK)
 		GST_ERROR_OBJECT(scaler, "ERROR \n");
