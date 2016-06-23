@@ -55,7 +55,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
 #include <gst/gst.h>
+#include <gst/video/video-info.h>
 #include <gst/base/gstbasetransform.h>
 #include <media-bus-format.h>
 
@@ -94,7 +99,16 @@ enum
 	ARG_SCALER_DST_WIDTH,
 	ARG_SCALER_DST_HEIGHT,
 
+	/* buffer type */
+	ARG_BUFFER_TYPE,
+
 	ARG_NUM,
+};
+
+enum
+{
+	BUFFER_TYPE_NORMAL,
+	BUFFER_TYPE_GEM,
 };
 
 enum
@@ -257,15 +271,21 @@ _create_buffer(GstNxScaler *scaler)
 			GST_ERROR_OBJECT(scaler,"failed to gem to dma %d", i);
 			return FALSE;
 		}
-		#if 0
-		if (get_vaddr(scaler->drm_fd, gem_fd, scaler->buffer_size, &vaddr)) {
-			GST_ERROR_OBJECT(scaler,"failed to get_vaddr %d", i);
-			return FALSE;
+		if (scaler->buffer_type == BUFFER_TYPE_NORMAL) {
+			void *vaddr = mmap(NULL,
+					   scaler->buffer_size,
+					   PROT_READ,
+					   MAP_SHARED,
+					   dma_fd,
+					   0);
+			if (vaddr == MAP_FAILED) {
+				GST_ERROR_OBJECT(scaler, "failed to mmap");
+				return FALSE;
+			}
+			scaler->vaddrs[i] = vaddr;
 		}
-		#endif
 		scaler->gem_fds[i] = gem_fd;
 		scaler->dma_fds[i] = dma_fd;
-		//scaler->vaddrs[i] = vaddr;
 	}
 	return TRUE;
 #endif
@@ -502,22 +522,16 @@ gst_nxscaler_src_event (GstBaseTransform *parent, GstEvent *event)
 	}
 	return TRUE;
 }
-
 static GstFlowReturn
-gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer **outbuf)
+output_buffer_accel(GstNxScaler *scaler, GstBuffer *inbuf,
+		    GstBuffer **outbuf)
 {
-	GstNxScaler *scaler = GST_NXSCALER(trans);
 	GstFlowReturn ret = GST_FLOW_OK;
 	MMVideoBuffer *mm_buf = NULL;
-	GstMemory *meta_data = NULL, *meta_block = NULL, *dummy_data = NULL;
+	GstMemory *meta_data = NULL, *meta_block = NULL;
 	GstBuffer *buffer = NULL;
 	GstMapInfo info;
 	struct nx_scaler_context s_ctx;
-	if (gst_base_transform_is_passthrough (trans)) {
-		GST_DEBUG_OBJECT(scaler,"Passthrough, no need to do anything");
-		*outbuf = inbuf;
-		goto beach;
-	}
 
 	memset(&info, 0, sizeof(GstMapInfo));
 	meta_block = gst_buffer_peek_memory(inbuf, 0);
@@ -557,21 +571,12 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
         /* FIXME: currently test only YUV420 format */
         mm_buf->plane_num = 3;
         mm_buf->format = MM_PIXEL_FORMAT_I420;
-	#if 0
-        mm_buf->stride_width[0] = GST_ROUND_UP_32(scaler->dst_width);
-        mm_buf->stride_width[1] = GST_ROUND_UP_16(mm_buf->stride_width[0] >> 1);
-        mm_buf->stride_width[2] = mm_buf->stride_width[1];
-        mm_buf->stride_height[0] = GST_ROUND_UP_16(scaler->dst_height);
-        mm_buf->stride_height[1] = GST_ROUND_UP_16(scaler->dst_height >> 1);
-        mm_buf->stride_height[2] = mm_buf->stride_height[1];
-	#else
         mm_buf->stride_width[0] = s_ctx.dst_stride[0];
         mm_buf->stride_width[1] = s_ctx.dst_stride[1];
         mm_buf->stride_width[2] = s_ctx.dst_stride[2];
         mm_buf->stride_height[0] = GST_ROUND_UP_16(scaler->dst_height);
         mm_buf->stride_height[1] = GST_ROUND_UP_16(scaler->dst_height >> 1);
         mm_buf->stride_height[2] = mm_buf->stride_height[1];
-	#endif
 	mm_buf->handle.gem[0] = scaler->flinks[scaler->buffer_index];
 	mm_buf->handle_num = 1;
 	mm_buf->buffer_index = scaler->buffer_index;
@@ -586,6 +591,7 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 		GST_ERROR_OBJECT(scaler, "failed to get gst buffer ");
 		goto beach;
 	}
+
 	meta_data = gst_memory_new_wrapped(GST_MEMORY_FLAG_READONLY,
 		mm_buf,
 		sizeof(MMVideoBuffer),
@@ -600,6 +606,119 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 		GST_DEBUG_OBJECT(scaler, "gst_buffer = 0x%x, meta_data = 0x%x, meta_data_size = %d \n",
 		buffer, meta_data, sizeof(MMVideoBuffer));
 		gst_buffer_append_memory(buffer,meta_data);
+	}
+	*outbuf = buffer;
+	if (ret != GST_FLOW_OK)
+		GST_ERROR_OBJECT(scaler, "ERROR \n");
+	GST_DEBUG_OBJECT(scaler, "Input Memory Buffer Unmap \n");
+	gst_memory_unmap(meta_block, &info);
+	return ret;
+beach:
+
+	GST_ERROR_OBJECT(scaler, "ERROR: \n ");
+	gst_memory_unmap(meta_block, &info);
+	if (buffer) {
+		gst_buffer_unref((GstBuffer*)buffer);
+	}
+	ret = GST_FLOW_ERROR;
+	return ret;
+}
+
+static GstFlowReturn
+output_buffer_normal(GstNxScaler *scaler, GstBuffer *inbuf,
+		     GstBuffer **outbuf)
+{
+	GstFlowReturn ret = GST_FLOW_OK;
+	MMVideoBuffer *mm_buf = NULL;
+	GstMemory *meta_data = NULL, *meta_block = NULL, *dummy_data = NULL;
+	GstBuffer *buffer = NULL;
+	GstMapInfo info;
+	GstVideoMeta *video_meta = NULL;
+	unsigned char *data = NULL;
+	gsize offset[3] = {0, };
+	gint stride[3] = {0, };
+	struct nx_scaler_context s_ctx;
+
+	memset(&info, 0, sizeof(GstMapInfo));
+	meta_block = gst_buffer_peek_memory(inbuf, 0);
+	gst_memory_map(meta_block, &info, GST_MAP_READ);
+
+	mm_buf = (MMVideoBuffer *)info.data;
+	if (!mm_buf) {
+		GST_ERROR_OBJECT(scaler, "failed to get MMVideoBuffer !");
+		goto beach;
+	} else {
+                GST_DEBUG_OBJECT(scaler, "get MMVideoBuffer");
+	}
+
+	ret = _init_scale_context(scaler, mm_buf, &s_ctx);
+	if (ret != GST_FLOW_OK) {
+		GST_ERROR_OBJECT(scaler, "set scale context fail");
+		goto beach;
+	}
+
+	GST_DEBUG_OBJECT(scaler, "NX_SCALER_RUN \n");
+	nx_scaler_run(scaler->scaler_fd, &s_ctx);
+
+	buffer = gst_buffer_new();
+	if (buffer == NULL) {
+		GST_ERROR_OBJECT(scaler, "failed to get gst buffer ");
+		goto beach;
+	}
+
+	data = (unsigned char *)malloc(scaler->buffer_size);
+	if (!data) {
+		GST_ERROR_OBJECT(scaler, "failed to alloc buffer for data");
+		goto beach;
+	}
+	memcpy(data, scaler->vaddrs[scaler->buffer_index], scaler->buffer_size);
+
+	if (scaler->buffer_index < scaler->buffer_count - 1)
+		scaler->buffer_index++;
+	else
+		scaler->buffer_index = 0;
+
+	meta_data = gst_memory_new_wrapped(GST_MEMORY_FLAG_READONLY,
+					   data,
+					   scaler->buffer_size,
+					   0,
+					   scaler->buffer_size,
+					   data,
+					   free);
+
+	if (!meta_data) {
+		GST_ERROR_OBJECT(scaler, "failed to get gstmem ");
+		goto beach;
+	} else {
+		GST_DEBUG_OBJECT(scaler, "gst_buffer = 0x%x, meta_data = 0x%x, meta_data_size = %d \n",
+		buffer, meta_data, scaler->buffer_size);
+		gst_buffer_append_memory(buffer, meta_data);
+	}
+
+        mm_buf->stride_width[0] = s_ctx.dst_stride[0];
+        mm_buf->stride_width[1] = s_ctx.dst_stride[1];
+        mm_buf->stride_width[2] = s_ctx.dst_stride[2];
+        mm_buf->stride_height[0] = GST_ROUND_UP_16(scaler->dst_height);
+        mm_buf->stride_height[1] = GST_ROUND_UP_16(scaler->dst_height >> 1);
+        mm_buf->stride_height[2] = mm_buf->stride_height[1];
+
+	stride[0] = s_ctx.dst_stride[0];
+	stride[1] = s_ctx.dst_stride[1];
+	stride[2] = s_ctx.dst_stride[2];
+	offset[0] = 0;
+	offset[1] = offset[0] + (stride[0] * GST_ROUND_UP_16(scaler->dst_height));
+	offset[2] = offset[1] + (stride[1] * GST_ROUND_UP_16(scaler->dst_height >> 1));
+	video_meta = gst_buffer_add_video_meta_full(buffer,
+						    GST_VIDEO_FRAME_FLAG_NONE,
+						    GST_VIDEO_FORMAT_I420,
+						    scaler->dst_width,
+						    scaler->dst_height,
+						    3,
+						    offset,
+						    stride);
+	if (!video_meta) {
+		GST_ERROR_OBJECT(scaler, "failed to gst_buffer_add_video_meta_full");
+		goto beach;
 	}
 	dummy_data = gst_memory_new_wrapped(GST_MEMORY_FLAG_READONLY,
 		mm_buf,
@@ -619,13 +738,16 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 	// set time info
 	GST_BUFFER_PTS(buffer) = GST_BUFFER_PTS(inbuf);
 	*outbuf = buffer;
+
 	if (ret != GST_FLOW_OK)
 		GST_ERROR_OBJECT(scaler, "ERROR \n");
+
 	GST_DEBUG_OBJECT(scaler, "Input Memory Buffer Unmap \n");
 	gst_memory_unmap(meta_block, &info);
-	return ret;
-beach:
 
+	return ret;
+
+beach:
 	GST_ERROR_OBJECT(scaler, "ERROR: \n ");
 	gst_memory_unmap(meta_block, &info);
 	if (buffer) {
@@ -634,6 +756,24 @@ beach:
 	ret = GST_FLOW_ERROR;
 	return ret;
 }
+
+static GstFlowReturn
+gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer **outbuf)
+{
+	GstNxScaler *scaler = GST_NXSCALER(trans);
+
+	if (gst_base_transform_is_passthrough (trans)) {
+		GST_DEBUG_OBJECT(scaler,"Passthrough, no need to do anything");
+		*outbuf = inbuf;
+		return GST_FLOW_OK;
+	}
+
+	if (scaler->buffer_type == BUFFER_TYPE_GEM)
+		return output_buffer_accel(scaler, inbuf, outbuf);
+	else
+		return output_buffer_normal(scaler, inbuf, outbuf);
+}
+
 
 static GstFlowReturn
 gst_nxscaler_transform (GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbut)
@@ -753,7 +893,15 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 							  MAX_RESOLUTION_Y,
 							  0,
 							  G_PARAM_READWRITE));
-
+	g_object_class_install_property(gobject_class,
+					ARG_BUFFER_TYPE,
+					g_param_spec_uint("buffer-type",
+							  "buffer-type",
+							  "Buffer Type(0:NORMAL 1:MM_VIDEO_BUFFER_TYPE_GEM)",
+							  0,
+							  1,
+							  BUFFER_TYPE_GEM,
+							  G_PARAM_READWRITE));
 
 	base_transform_class->start = GST_DEBUG_FUNCPTR(gst_nxscaler_start);
 	base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_nxscaler_stop);
@@ -795,6 +943,8 @@ gst_nx_scaler_init (GstNxScaler * scaler)
 	scaler->buffer_count = 0;
 	scaler->buffer_index = 0;
 	scaler->src_fd = -1;
+
+	scaler->buffer_type = BUFFER_TYPE_GEM;
 
 #ifdef USE_NATIVE_DRM_BUFFER
 	scaler->drm_fd = -1;
@@ -852,6 +1002,11 @@ gst_nx_scaler_set_property (GObject * object, guint prop_id,
 		GST_INFO_OBJECT(scaler, "Set SCALER_DST_HEIGHT: %u",
 				scaler->dst_height);
 		break;
+	case ARG_BUFFER_TYPE:
+		scaler->buffer_type = g_value_get_uint(value);
+		GST_INFO_OBJECT(scaler, "Set buffer_type: %u",
+				scaler->buffer_type);
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
@@ -885,6 +1040,9 @@ gst_nx_scaler_get_property (GObject * object, guint prop_id,
         case ARG_SCALER_DST_HEIGHT:
                g_value_set_uint(value, scaler->dst_height);
                 break;
+	case ARG_BUFFER_TYPE:
+		g_value_set_uint(value, scaler->buffer_type);
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;

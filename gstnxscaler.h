@@ -96,6 +96,8 @@ struct _GstNxScaler
 	/* source buffer handle */
 	guint32 src_fd;
 
+	guint32 buffer_type;
+
 #ifdef USE_NATIVE_DRM_BUFFER
 	int drm_fd;
 	int gem_fds[MAX_BUFFER_COUNT];
