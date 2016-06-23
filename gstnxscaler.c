@@ -48,6 +48,7 @@
 #endif
 
 #include <unistd.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <fcntl.h>
@@ -78,7 +79,8 @@ GST_DEBUG_CATEGORY_STATIC (gst_nx_scaler_debug);
 #define DEF_BUFFER_COUNT 8
 #define MAX_RESOLUTION_X 1920
 #define MAX_RESOLUTION_Y 1080
-
+#define DEFAULT_RESOLUTION_X 1280
+#define DEFAULT_RESOLUTION_Y 720
 /* Filter signals and args */
 enum
 {
@@ -108,13 +110,19 @@ enum
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
 	GST_PAD_SINK,
 	GST_PAD_ALWAYS,
-	GST_STATIC_CAPS("ANY")
+	GST_STATIC_CAPS("video/x-raw, "
+	"format = (string) { I420 }, "
+	"width = (int)[1, 1920],"
+	"height = (int) [1, 1080]; ")
 );
 
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
 	GST_PAD_SRC,
 	GST_PAD_ALWAYS,
-	GST_STATIC_CAPS("ANY")
+	GST_STATIC_CAPS("video/x-raw, "
+	"format = (string) { I420 }, "
+	"width = (int)[1, 1920],"
+	"height = (int) [1, 1080]; ")
 );
 
 #define gst_nx_scaler_parent_class parent_class
@@ -176,33 +184,33 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
 #endif
 
 	scaler_ctx->crop.x = scaler->crop_x;
-        scaler_ctx->crop.y = scaler->crop_y;
-        scaler_ctx->crop.width = scaler->crop_width;
-        scaler_ctx->crop.height = scaler->crop_height;
+	scaler_ctx->crop.y = scaler->crop_y;
+	scaler_ctx->crop.width = scaler->crop_width;
+	scaler_ctx->crop.height = scaler->crop_height;
 
-        scaler_ctx->src_plane_num = 1;
-        scaler_ctx->src_width = mm_buf->width[0];
-        scaler_ctx->src_height = mm_buf->height[0];
-        scaler_ctx->src_code = MEDIA_BUS_FMT_YUYV8_2X8;
+	scaler_ctx->src_plane_num = 1;
+	scaler_ctx->src_width = mm_buf->width[0];
+	scaler_ctx->src_height = mm_buf->height[0];
+	scaler_ctx->src_code = MEDIA_BUS_FMT_YUYV8_2X8;
 
-        scaler_ctx->src_stride[0] = src_y_stride;
-        scaler_ctx->src_stride[1] = src_c_stride;
-        scaler_ctx->src_stride[2] = src_c_stride;
+	scaler_ctx->src_stride[0] = src_y_stride;
+	scaler_ctx->src_stride[1] = src_c_stride;
+	scaler_ctx->src_stride[2] = src_c_stride;
 
-        scaler_ctx->dst_plane_num = 1;
-        scaler_ctx->dst_width = scaler->dst_width;
+	scaler_ctx->dst_plane_num = 1;
+	scaler_ctx->dst_width = scaler->dst_width;
 	scaler_ctx->dst_height = scaler->dst_height;
-        scaler_ctx->dst_code = MEDIA_BUS_FMT_YUYV8_2X8;
+	scaler_ctx->dst_code = MEDIA_BUS_FMT_YUYV8_2X8;
 
-        scaler_ctx->dst_stride[0] = dst_y_stride;
-        scaler_ctx->dst_stride[1] = dst_c_stride;
-        scaler_ctx->dst_stride[2] = dst_c_stride;
-        GST_DEBUG_OBJECT(scaler, "src_dma_fd:%d, dst_dma_fd:%d,crop_x:%d, crop_y:%d, crop_width:%d, crop_height: %d, src_width: %d, src_height: %d, plane_num: %d, dst_width: %d, dst_height: %d",
-			scaler_ctx->src_fds[0], scaler_ctx->dst_fds[0],
-			scaler_ctx->crop.x, scaler_ctx->crop.y,
-			scaler_ctx->crop.width, scaler_ctx->crop.height,
-			scaler_ctx->src_width, scaler_ctx->src_height, scaler_ctx->src_plane_num,
-			scaler_ctx->dst_width, scaler_ctx->dst_height);
+    scaler_ctx->dst_stride[0] = dst_y_stride;
+    scaler_ctx->dst_stride[1] = dst_c_stride;
+    scaler_ctx->dst_stride[2] = dst_c_stride;
+    GST_DEBUG_OBJECT(scaler, "src_dma_fd:%d, dst_dma_fd:%d,crop_x:%d, crop_y:%d, crop_width:%d, crop_height: %d, src_width: %d, src_height: %d, plane_num: %d, dst_width: %d, dst_height: %d",
+		scaler_ctx->src_fds[0], scaler_ctx->dst_fds[0],
+		scaler_ctx->crop.x, scaler_ctx->crop.y,
+		scaler_ctx->crop.width, scaler_ctx->crop.height,
+		scaler_ctx->src_width, scaler_ctx->src_height, scaler_ctx->src_plane_num,
+		scaler_ctx->dst_width, scaler_ctx->dst_height);
 
 	ret = GST_FLOW_OK;
 	return ret;
@@ -212,12 +220,12 @@ static guint32
 _calc_alloc_size(guint32 w, guint32 h)
 {
 	guint32 y_stride = ALIGN(w, 32);
-        guint32 y_size = y_stride * ALIGN(h, 16);
-        guint32 size = 0;
+	guint32 y_size = y_stride * ALIGN(h, 16);
+	guint32 size = 0;
 
 	size = y_size + 2 * (ALIGN(y_stride >> 1, 16) * ALIGN(h >> 1, 16));
 
-        return size;
+	return size;
 }
 
 static gboolean
@@ -297,6 +305,202 @@ _destroy_buffer(GstNxScaler *scaler)
 	GST_DEBUG_OBJECT(scaler,"End _destory_buffer");
 	return TRUE;
 #endif
+}
+static GstCaps*
+_set_caps_init(GstNxScaler *scaler)
+{
+	GstCaps *caps = NULL;
+
+	GST_DEBUG_OBJECT(scaler, "ENTERED");
+
+        caps =  gst_caps_new_simple ("video/x-raw",
+                "format", G_TYPE_STRING, "I420",
+		"framerate", GST_TYPE_FRACTION, 1, 1,
+                "buffer-type", G_TYPE_INT, MM_VIDEO_BUFFER_TYPE_GEM,
+                "width", G_TYPE_INT, scaler->dst_width,
+                "height", G_TYPE_INT, scaler->dst_height,
+                NULL);
+        if(caps) {
+		scaler->src_caps = gst_caps_copy(caps);
+        	GST_DEBUG_OBJECT(scaler, "new caps %" GST_PTR_FORMAT, scaler->src_caps);
+	}
+        GST_DEBUG_OBJECT(scaler, "LEAVED");
+        return caps;
+}
+
+static GstCaps*
+gst_nxscaler_fixate_caps (GstBaseTransform *trans, GstPadDirection direction,
+GstCaps *caps, GstCaps *othercaps)
+{
+	GstNxScaler *scaler = GST_NXSCALER(trans);
+	GstStructure *s_src, *s_sink = NULL;
+	guint32 w = 0, h = 0;
+	GstPad *pad = NULL;
+	const GValue *framerate;
+
+	GST_DEBUG_OBJECT(scaler, "Direction : %s[%d] ",
+		(direction == GST_PAD_SINK) ? "sink" : "sorce", direction);
+	pad =
+	(direction ==
+	GST_PAD_SINK) ? GST_BASE_TRANSFORM_SINK_PAD (trans) :
+	GST_BASE_TRANSFORM_SRC_PAD (trans);	
+	GST_DEBUG_OBJECT(scaler, "caps %" GST_PTR_FORMAT, caps);
+	GST_DEBUG_OBJECT(scaler, "other caps %" GST_PTR_FORMAT ,othercaps);
+	if(direction == GST_PAD_SINK) {
+        	s_sink = gst_caps_get_structure(caps, 0);
+        	if(!s_sink)
+                	GST_ERROR_OBJECT(scaler, "failed to get structure from caps %" GST_PTR_FORMAT, caps);
+        	s_src = gst_caps_get_structure(othercaps, 0);
+        	if(!s_src)
+                	GST_ERROR_OBJECT(scaler, "failed to get structure from caps %" GST_PTR_FORMAT, othercaps);
+		framerate = gst_structure_get_value(s_sink, "framerate");
+		if(!framerate)
+			GST_ERROR_OBJECT(scaler, "failed to get structure from caps %" GST_PTR_FORMAT, othercaps);
+		gst_structure_set_value(s_src, "framerate", framerate);
+        	if (!gst_structure_get_int(s_src, "width", &w))
+			GST_ERROR_OBJECT(scaler, "failed to get width from structure(%p)", s_src);
+        	if (!gst_structure_get_int(s_src, "height", &w))
+			GST_ERROR_OBJECT(scaler, "failed to get height from structure(%p)", s_src);
+		if((w != scaler->dst_width) || (h != scaler->dst_height)) {
+                	GST_ERROR_OBJECT(scaler, "fixed caps of src pad isan't matched with the caps of orignal srcpad");
+                	gst_structure_set(s_src, "width", G_TYPE_INT, scaler->dst_width, NULL);
+                	gst_structure_set(s_src, "height", G_TYPE_INT, scaler->dst_height, NULL);
+		}
+		GST_DEBUG_OBJECT(scaler, "other caps is changed %" GST_PTR_FORMAT, othercaps);
+	}
+  	othercaps = gst_caps_fixate (othercaps);
+ 	GST_DEBUG_OBJECT (scaler, "fixated to %" GST_PTR_FORMAT, othercaps);
+	return othercaps;
+}
+
+static gboolean
+gst_nxscaler_accept_caps (GstBaseTransform *trans, GstPadDirection direction,
+	GstCaps *caps)
+{
+	GstNxScaler *scaler = GST_NXSCALER(trans);
+	GstPad *pad, *otherpad;
+	GstCaps *templ, *otempl, *ocaps = NULL;
+	gboolean ret = TRUE;
+	GstStructure *s = NULL;
+	guint32 w = 0, h = 0;
+
+	GST_DEBUG_OBJECT(scaler, "Entered ");
+
+	GST_DEBUG_OBJECT(scaler, "Direction : %s[%d] ",
+		(direction == GST_PAD_SINK) ? "sink" : "sorce", direction);
+	pad =
+	(direction ==
+	GST_PAD_SINK) ? GST_BASE_TRANSFORM_SINK_PAD (trans) :
+	GST_BASE_TRANSFORM_SRC_PAD (trans);
+	otherpad =
+	(direction ==
+	GST_PAD_SINK) ? GST_BASE_TRANSFORM_SRC_PAD (trans) :
+	GST_BASE_TRANSFORM_SINK_PAD (trans);
+	GST_DEBUG_OBJECT (scaler, "accept caps %" GST_PTR_FORMAT, caps);
+	GST_DEBUG_OBJECT (scaler, "sink pad caps: %" GST_PTR_FORMAT,
+	gst_pad_get_pad_template_caps (GST_BASE_TRANSFORM_SINK_PAD(trans)));
+	GST_DEBUG_OBJECT (scaler, "src pad caps: %" GST_PTR_FORMAT,
+	scaler->src_caps);
+	if(direction == GST_PAD_SRC) {
+		if((scaler->src_caps != NULL) || (!gst_caps_is_empty(scaler->src_caps))) {
+			templ = gst_caps_copy(scaler->src_caps);
+		} else {
+			GST_DEBUG_OBJECT (scaler, "scaler->src_caps is null or empty  %" GST_PTR_FORMAT
+			, scaler->src_caps);
+			templ = gst_pad_get_pad_template_caps (pad);
+		}
+		otempl = gst_pad_get_pad_template_caps (otherpad);
+	} else {
+		if((scaler->src_caps != NULL) || (!gst_caps_is_empty(scaler->src_caps))) {
+			otempl = gst_caps_copy(scaler->src_caps);
+		} else {
+			GST_DEBUG_OBJECT (scaler, "scaler->src_caps is null or empty  %" GST_PTR_FORMAT
+			, scaler->src_caps);
+			otempl = gst_pad_get_pad_template_caps (otherpad);
+		}
+		templ = gst_pad_get_pad_template_caps (pad);
+	}
+
+	/* get all the formats we can handle on this pad */
+	GST_DEBUG_OBJECT (scaler, "intersect with pad template: %" GST_PTR_FORMAT,
+	templ);
+	GST_DEBUG_OBJECT (scaler, "intersect with other pad template: %" GST_PTR_FORMAT,
+	otempl);
+
+	if (!gst_caps_can_intersect (caps, templ)) {
+		GST_DEBUG_OBJECT (scaler,
+			"the caps that is intersected with pad template is empty : %"
+			GST_PTR_FORMAT, caps);
+		goto reject_caps;
+	}
+	done:
+	{
+		GST_DEBUG_OBJECT (scaler, "accept-caps result: %d", ret);
+		if (ocaps)
+			gst_caps_unref (ocaps);
+		gst_caps_unref (templ);
+		gst_caps_unref (otempl);
+		return ret;
+	}
+	/* ERRORS */
+	reject_caps:
+	{
+		GST_DEBUG_OBJECT (scaler, "caps can't intersect with the template");
+		ret = FALSE;
+		goto done;
+	}
+	no_transform_possible:
+	{
+		GST_DEBUG_OBJECT (scaler,
+		"transform could not transform %" GST_PTR_FORMAT
+		" in anything we support", caps);
+		ret = FALSE;
+		goto done;
+	}
+	return TRUE;
+}
+
+static gboolean
+gst_nxscaler_sink_event (GstBaseTransform *parent, GstEvent *event)
+{
+	gboolean ret=TRUE;
+	GstNxScaler *scaler = GST_NXSCALER(parent);
+	switch (GST_EVENT_TYPE (event)) {
+		case GST_EVENT_CAPS:
+		{
+			GstCaps *caps;
+			GST_DEBUG_OBJECT(scaler, "caps ");
+			gst_event_parse_caps (event, &caps);
+			GST_DEBUG_OBJECT (scaler, "in(sinkpad) caps  %" GST_PTR_FORMAT, caps);
+			break;
+		}
+		default:
+		GST_DEBUG_OBJECT(scaler,"event = %s",GST_EVENT_TYPE_NAME(event));
+		break;
+	}
+	GST_DEBUG_OBJECT(scaler,"ret[%d]",ret);
+	return ret;
+}
+
+static gboolean
+gst_nxscaler_src_event (GstBaseTransform *parent, GstEvent *event)
+{
+	gchar *caps_string;
+	GstNxScaler *scaler = GST_NXSCALER(parent);
+
+	switch (GST_EVENT_TYPE (event)) {
+		case GST_EVENT_CAPS:
+		{
+			GstCaps *caps;
+			GST_DEBUG_OBJECT(scaler,"event = %s",GST_EVENT_TYPE_NAME(event));
+			gst_event_parse_caps (event, &caps);
+			break;
+		}
+		default:
+		GST_DEBUG_OBJECT(scaler,"event = %s",GST_EVENT_TYPE_NAME(event));
+		break;
+	}
+	return TRUE;
 }
 
 static GstFlowReturn
@@ -382,7 +586,6 @@ gst_nxscaler_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf, Gs
 		GST_ERROR_OBJECT(scaler, "failed to get gst buffer ");
 		goto beach;
 	}
-
 	meta_data = gst_memory_new_wrapped(GST_MEMORY_FLAG_READONLY,
 		mm_buf,
 		sizeof(MMVideoBuffer),
@@ -416,19 +619,19 @@ beach:
 }
 
 static GstFlowReturn
-gst_nxscaler_transform_transform (GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbut)
+gst_nxscaler_transform (GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbut)
 {
 	GST_DEBUG("gst_nxscaler_transfrom  \n");
 	return GST_FLOW_OK;
 }
 
 static gboolean
-gst_nxscaler_transform_start (GstBaseTransform *trans)
+gst_nxscaler_start (GstBaseTransform *trans)
 {
-
 	GstNxScaler *scaler = GST_NXSCALER(trans);
 	gboolean ret = TRUE;
-	GST_DEBUG_OBJECT(scaler,"gst_nxscaler_transform_start \n");
+	GST_DEBUG_OBJECT(scaler,"gst_nxscaler_start \n");
+	_set_caps_init(scaler);
 	scaler->scaler_fd = scaler_open();
 	if (scaler->scaler_fd < 0) {
 		GST_ERROR_OBJECT(scaler, "failed to open scaler");
@@ -440,20 +643,21 @@ gst_nxscaler_transform_start (GstBaseTransform *trans)
 	ret = _create_buffer(scaler);
 	if (ret == FALSE)
 		GST_ERROR_OBJECT(scaler, "failed to create buffer");
+
 	return ret;
 }
 
 static gboolean
-gst_nxscaler_transform_stop (GstBaseTransform *trans)
+gst_nxscaler_stop (GstBaseTransform *trans)
 {
 	GstNxScaler *scaler = GST_NXSCALER(trans);
-	GST_DEBUG_OBJECT(scaler,"gst_nxscaler_transform_stop \n");
-
+	GST_DEBUG_OBJECT(scaler,"gst_nxscaler_transform_stop \n");	
+	if(scaler->src_caps)
+		gst_caps_unref(scaler->src_caps);
 	_destroy_buffer(scaler);
 	nx_scaler_close(scaler->scaler_fd);
 	return TRUE;
 }
-
 
 /* initialize the scaler's class */
 static void
@@ -467,9 +671,19 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 	gobject_class = (GObjectClass *) klass;
 	gstelement_class = (GstElementClass *) klass;
 	base_transform_class = (GstBaseTransformClass *) klass;
+
+	gst_element_class_set_details_simple(gstelement_class,
+	"Nexell Scaler GStreamer Plug-in",
+	"Filter/Video/Scaler",
+	"scale the video stream based GStreamer Plug-in",
+	"Hyejung Kwon <<cjscld15@nexell.co.kr>>");
+
+	gst_element_class_add_pad_template (gstelement_class,
+	gst_static_pad_template_get (&src_factory));
+	gst_element_class_add_pad_template (gstelement_class,
+	gst_static_pad_template_get (&sink_factory));
 	gobject_class->set_property = gst_nx_scaler_set_property;
 	gobject_class->get_property = gst_nx_scaler_get_property;
-
 	g_object_class_install_property(gobject_class, ARG_SCALER_CROP_X,
 					g_param_spec_uint("scaler-crop-x",
 							  "Crop X",
@@ -523,21 +737,13 @@ gst_nx_scaler_class_init (GstNxScalerClass * klass)
 							  0,
 							  G_PARAM_READWRITE));
 
-	gst_element_class_set_details_simple(gstelement_class,
-	"Nexell Scaler GStreamer Plug-in",
-	"Filter/Video/Scaler",
-	"scale the video stream based GStreamer Plug-in",
-	"Hyejung Kwon <<cjscld15@nexell.co.kr>>");
 
-	gst_element_class_add_pad_template (gstelement_class,
-	gst_static_pad_template_get (&src_factory));
-	gst_element_class_add_pad_template (gstelement_class,
-	gst_static_pad_template_get (&sink_factory));
-
+	base_transform_class->start = GST_DEBUG_FUNCPTR(gst_nxscaler_start);
+	base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_nxscaler_stop);
+	base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(gst_nxscaler_accept_caps);
+	base_transform_class->fixate_caps = GST_DEBUG_FUNCPTR(gst_nxscaler_fixate_caps);
 	base_transform_class->prepare_output_buffer = GST_DEBUG_FUNCPTR(gst_nxscaler_prepare_output_buffer);
-	base_transform_class->transform = GST_DEBUG_FUNCPTR(gst_nxscaler_transform_transform);
-	base_transform_class->start = GST_DEBUG_FUNCPTR(gst_nxscaler_transform_start);
-	base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_nxscaler_transform_stop);
+	base_transform_class->transform = GST_DEBUG_FUNCPTR(gst_nxscaler_transform);
 	base_transform_class->passthrough_on_same_caps = FALSE;
 	base_transform_class->transform_ip_on_passthrough = FALSE;
 }
@@ -556,14 +762,16 @@ gst_nx_scaler_init (GstNxScaler * scaler)
 
 	scaler->silent = FALSE;
 
-	scaler->dst_width = 1280;
-	scaler->dst_height = 720;
+	scaler->dst_width = DEFAULT_RESOLUTION_X;
+	scaler->dst_height = DEFAULT_RESOLUTION_Y;
 
 	scaler->crop_x = 0;
 	scaler->crop_y = 0;
 
 	scaler->crop_width = scaler->dst_width;
 	scaler->crop_height = scaler->dst_height;
+
+	scaler->src_caps = NULL;
 
 	scaler->scaler_fd = -1;
 	scaler->buffer_size = 0;
@@ -620,6 +828,7 @@ gst_nx_scaler_set_property (GObject * object, guint prop_id,
 		scaler->dst_width = g_value_get_uint(value);
 		GST_INFO_OBJECT(scaler, "Set SCALER_DST_WIDTH: %u",
 				scaler->dst_width);
+
 		break;
 	case ARG_SCALER_DST_HEIGHT:
 		scaler->dst_height = g_value_get_uint(value);
@@ -662,6 +871,7 @@ gst_nx_scaler_get_property (GObject * object, guint prop_id,
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
+
 	}
 }
 

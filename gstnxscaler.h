@@ -91,6 +91,8 @@ struct _GstNxScaler
 	guint32 buffer_count;
 	guint32 buffer_size;
 	guint32 buffer_index;
+
+	GstCaps *src_caps;
 	/* source buffer handle */
 	guint32 src_fd;
 
