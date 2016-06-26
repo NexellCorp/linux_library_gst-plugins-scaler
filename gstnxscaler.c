@@ -86,6 +86,8 @@ GST_DEBUG_CATEGORY_STATIC (gst_nx_scaler_debug);
 #define MAX_RESOLUTION_Y 1080
 #define DEFAULT_RESOLUTION_X 1280
 #define DEFAULT_RESOLUTION_Y 720
+#define MINIMUM_CROP_X 320
+#define MINIMUM_CROP_Y 240
 /* Filter signals and args */
 enum
 {
@@ -215,10 +217,9 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
 	scaler_ctx->dst_width = scaler->dst_width;
 	scaler_ctx->dst_height = scaler->dst_height;
 	scaler_ctx->dst_code = MEDIA_BUS_FMT_YUYV8_2X8;
-
-    scaler_ctx->dst_stride[0] = dst_y_stride;
-    scaler_ctx->dst_stride[1] = dst_c_stride;
-    scaler_ctx->dst_stride[2] = dst_c_stride;
+	scaler_ctx->dst_stride[0] = dst_y_stride;
+	scaler_ctx->dst_stride[1] = dst_c_stride;
+	scaler_ctx->dst_stride[2] = dst_c_stride;
     GST_DEBUG_OBJECT(scaler, "src_dma_fd:%d, dst_dma_fd:%d,crop_x:%d, crop_y:%d, crop_width:%d, crop_height: %d, src_width: %d, src_height: %d, plane_num: %d, dst_width: %d, dst_height: %d",
 		scaler_ctx->src_fds[0], scaler_ctx->dst_fds[0],
 		scaler_ctx->crop.x, scaler_ctx->crop.y,
@@ -719,13 +720,15 @@ output_buffer_normal(GstNxScaler *scaler, GstBuffer *inbuf,
         mm_buf->stride_height[0] = GST_ROUND_UP_16(scaler->dst_height);
         mm_buf->stride_height[1] = GST_ROUND_UP_16(scaler->dst_height >> 1);
         mm_buf->stride_height[2] = mm_buf->stride_height[1];
-
 	stride[0] = s_ctx.dst_stride[0];
 	stride[1] = s_ctx.dst_stride[1];
 	stride[2] = s_ctx.dst_stride[2];
 	offset[0] = 0;
 	offset[1] = offset[0] + (stride[0] * GST_ROUND_UP_16(scaler->dst_height));
 	offset[2] = offset[1] + (stride[1] * GST_ROUND_UP_16(scaler->dst_height >> 1));
+	GST_DEBUG_OBJECT(scaler, "stride : %d, %d, %d , offset : %d, %d, %d",
+		stride[0], stride[1], stride[2],
+		offset[0], offset[1], offset[2]);
 	video_meta = gst_buffer_add_video_meta_full(buffer,
 						    GST_VIDEO_FRAME_FLAG_NONE,
 						    GST_VIDEO_FORMAT_I420,
@@ -936,8 +939,8 @@ gst_nx_scaler_init (GstNxScaler * scaler)
 	scaler->crop_x = 0;
 	scaler->crop_y = 0;
 
-	scaler->crop_width = scaler->dst_width;
-	scaler->crop_height = scaler->dst_height;
+	scaler->crop_width = MINIMUM_CROP_X;
+	scaler->crop_height = MINIMUM_CROP_Y;
 
 	scaler->src_caps = NULL;
 
