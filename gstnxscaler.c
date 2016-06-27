@@ -393,6 +393,22 @@ GstCaps *caps, GstCaps *othercaps)
  	GST_DEBUG_OBJECT (scaler, "fixated to %" GST_PTR_FORMAT, othercaps);
 	return othercaps;
 }
+static gboolean
+_check_valid_crop_size(GstNxScaler *scaler, guint32 width, guint32 height)
+{
+	guint32 crop_width = scaler->crop_width + scaler->crop_x;
+	guint32 crop_height = scaler->crop_height + scaler->crop_y;
+	gboolean ret = TRUE;
+
+	GST_INFO_OBJECT(scaler, "input - width[%d] height[%d], scaler - width[%d] height[%d]",
+				width, height, crop_width, crop_height);
+	if( (crop_width <= 0) || (crop_width > width) || (crop_height <= 0) || (crop_height > height)) {
+		ret = FALSE;
+		GST_ERROR_OBJECT(scaler, "crop width and height is unvalid: x[%d] y[%d]",
+				scaler->crop_x, scaler->crop_y);
+	}
+	return ret;
+}
 
 static gboolean
 gst_nxscaler_accept_caps (GstBaseTransform *trans, GstPadDirection direction,
@@ -454,6 +470,11 @@ gst_nxscaler_accept_caps (GstBaseTransform *trans, GstPadDirection direction,
 			GST_PTR_FORMAT, caps);
 		goto reject_caps;
 	}
+	s = gst_caps_get_structure(caps, 0);
+	if (!gst_structure_get_int(s, "width", &w) || !gst_structure_get_int(s, "height", &h))
+		GST_ERROR_OBJECT(scaler, "failed to get width from structure(%p)", s);
+	if(!_check_valid_crop_size(scaler, w, h))
+		goto reject_caps;
 	done:
 	{
 		GST_DEBUG_OBJECT (scaler, "accept-caps result: %d", ret);
