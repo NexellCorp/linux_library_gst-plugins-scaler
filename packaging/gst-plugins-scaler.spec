@@ -13,6 +13,7 @@ BuildRequires:	glibc-devel
 BuildRequires:	gstreamer1-plugins-base-devel
 BuildRequires:	nx-scaler-devel
 BuildRequires:	nx-drm-allocator-devel
+BuildRequires:	nx-gst-meta-devel
 
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
