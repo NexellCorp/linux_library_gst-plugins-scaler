@@ -14,7 +14,7 @@ libgstnxscaler_la_LTLIBRARIES = libgstnxscaler.la
 libgstnxscaler_ladir = ${libdir}/${GST_PLUGIN_PATH}
 libgstnxscaler_la_LDFLAGS = -L${libdir} -L${EXTRAPATH_LIB}
 libgstnxscaler_la_LIBADD = -lgstvideo-1.0 -lgstallocators-1.0 -lgstbase-1.0 -lgmodule-2.0 -lgobject-2.0 -lglib-2.0
-libgstnxscaler_la_LIBADD += -lnx_scaler -lnx_drm_allocator
+libgstnxscaler_la_LIBADD += -lnx_scaler -lnx_drm_allocator -lnxgstmeta
 libgstnxscaler_la_SOURCES = \
 	gstnxscaler.c
 
