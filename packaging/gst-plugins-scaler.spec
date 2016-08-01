@@ -1,7 +1,7 @@
 Name:    gst-plugins-scaler
 Version: 0.0.1
 Release: 0
-License: Apache 2.0
+License: LGPLv2+
 Summary: nexell scaler gstreamer plugin
 Group: Development/Libraries
 Source:  %{name}-%{version}.tar.gz
@@ -41,3 +41,4 @@ find %{buildroot} -type f -name "*.la" -delete
 %files
 %{_libdir}/gstreamer-1.0/libgstnxscaler.so
 %{_libdir}/gstreamer-1.0/libgstnxscaler.so.*
+%license LICENSE.LGPLv2+
