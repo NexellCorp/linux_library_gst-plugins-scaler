@@ -63,6 +63,7 @@
 #include <gst/video/video-info.h>
 #include <gst/base/gstbasetransform.h>
 #include <media-bus-format.h>
+#include <gstmmvideobuffermeta.h>
 
 #include "mm_types.h"
 
