@@ -154,22 +154,26 @@ static guint32
 _get_source_handle(GstNxScaler *scaler, guint32 handle, guint32 index)
 {
 	guint32 dma_fd = -1, gem_fd = -1;
-#ifdef USE_NATIVE_DRM_BUFFER	
-	if (scaler->src_gem_fds[index] < 0) {
-		gem_fd = import_gem_from_flink(scaler->drm_fd, handle);
-		if (gem_fd < 0) {
+#ifdef USE_NATIVE_DRM_BUFFER
+	if(index<MAX_IN_BUFFER_COUNT) {
+		if (scaler->src_gem_fds[index] < 0) {
+			gem_fd = import_gem_from_flink(scaler->drm_fd, handle);
+			if (gem_fd < 0) {
 			GST_ERROR_OBJECT(scaler, "failed to import gem from flink(%d)", (int)handle);
 			return gem_fd;
-		}
-		dma_fd = gem_to_dmafd(scaler->drm_fd, gem_fd);
-		if (dma_fd < 0) {
+			}
+			dma_fd = gem_to_dmafd(scaler->drm_fd, gem_fd);
+			if (dma_fd < 0) {
 			GST_ERROR_OBJECT(scaler, "failed to get drm fd from gem fd(%d)", (int)gem_fd);
 			free_gem(scaler->drm_fd, gem_fd);
 			return dma_fd;
+			}
+			GST_DEBUG_OBJECT(scaler,"flink:%d, src_gem_fd:%d, src_dma_fd :%d", handle, gem_fd, dma_fd);
+			scaler->src_gem_fds[index] = gem_fd;
+			scaler->src_dma_fds[index] = dma_fd;
 		}
-        	GST_DEBUG_OBJECT(scaler,"flink:%d, src_gem_fd:%d, src_dma_fd :%d", handle, gem_fd, dma_fd);
-		scaler->src_gem_fds[index] = gem_fd;
-		scaler->src_dma_fds[index] = dma_fd;
+	} else {
+		GST_ERROR_OBJECT(scaler, "index is over the size of in buffer (%d)", (int)index);
 	}
 #endif
 	return scaler->src_dma_fds[index];
@@ -311,7 +315,7 @@ _destroy_buffer(GstNxScaler *scaler)
 		}
 	}
 
-	for (i = 0; i < MAX_SRC_BUFFER_COUNT; i++) {
+	for (i = 0; i < MAX_IN_BUFFER_COUNT; i++) {
 		if(scaler->src_gem_fds[i] >= 0) {
 			close(scaler->src_gem_fds[i]);
 			scaler->src_gem_fds[i] = -1;
@@ -960,14 +964,12 @@ gst_nx_scaler_init (GstNxScaler * scaler)
 
 #ifdef USE_NATIVE_DRM_BUFFER
 	scaler->drm_fd = -1;
-	for (i = 0; i < MAX_BUFFER_COUNT; i++) {
+	for (i = 0; i < MAX_OUT_BUFFER_COUNT; i++) {
 		scaler->gem_fds[i] = -1;
 		scaler->dma_fds[i] = -1;
 		scaler->flinks[i] = -1;
-		scaler->src_gem_fds[i] = -1;
-		scaler->src_dma_fds[i] = -1;
 	}
-	for (i = 0; i < MAX_SRC_BUFFER_COUNT; i++) {
+	for (i = 0; i < MAX_IN_BUFFER_COUNT; i++) {
 		scaler->src_gem_fds[i] = -1;
 		scaler->src_dma_fds[i] = -1;
 	}

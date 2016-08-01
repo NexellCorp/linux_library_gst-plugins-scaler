@@ -62,9 +62,9 @@ G_BEGIN_DECLS
 #define GST_IS_NXSCALER_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_NXSCALER))
 
-#define MAX_BUFFER_COUNT 12
+#define MAX_OUT_BUFFER_COUNT 12
 
-#define MAX_SRC_BUFFER_COUNT 16
+#define MAX_IN_BUFFER_COUNT 30
 
 #define USE_NATIVE_DRM_BUFFER
 
@@ -100,12 +100,12 @@ struct _GstNxScaler
 
 #ifdef USE_NATIVE_DRM_BUFFER
 	int drm_fd;
-	int gem_fds[MAX_BUFFER_COUNT];
-	int flinks[MAX_BUFFER_COUNT];
-	int dma_fds[MAX_BUFFER_COUNT];
-	void *vaddrs[MAX_BUFFER_COUNT];
-	int src_gem_fds[MAX_SRC_BUFFER_COUNT];
-	int src_dma_fds[MAX_SRC_BUFFER_COUNT];
+	int gem_fds[MAX_OUT_BUFFER_COUNT];
+	int flinks[MAX_OUT_BUFFER_COUNT];
+	int dma_fds[MAX_OUT_BUFFER_COUNT];
+	void *vaddrs[MAX_OUT_BUFFER_COUNT];
+	int src_gem_fds[MAX_IN_BUFFER_COUNT];
+	int src_dma_fds[MAX_IN_BUFFER_COUNT];
 #endif
 };
 
