@@ -484,8 +484,6 @@ gst_nxscaler_accept_caps (GstBaseTransform *trans, GstPadDirection direction,
 	done:
 	{
 		GST_DEBUG_OBJECT (scaler, "accept-caps result: %d", ret);
-		if (ocaps)
-			gst_caps_unref (ocaps);
 		gst_caps_unref (templ);
 		gst_caps_unref (otempl);
 		return ret;
