@@ -154,7 +154,7 @@ static void gst_nx_scaler_get_property (GObject * object, guint prop_id,
 static guint32
 _get_source_handle(GstNxScaler *scaler, guint32 handle, guint32 index)
 {
-	guint32 dma_fd = -1, gem_fd = -1;
+	gint32 dma_fd = -1, gem_fd = -1;
 #ifdef USE_NATIVE_DRM_BUFFER
 	if(index<MAX_IN_BUFFER_COUNT) {
 		if (scaler->src_gem_fds[index] < 0) {
