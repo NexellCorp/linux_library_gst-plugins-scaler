@@ -151,7 +151,7 @@ static void gst_nx_scaler_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
 /* GObject vmethod implementations */
-static guint32
+static gint32
 _get_source_handle(GstNxScaler *scaler, guint32 handle, guint32 index)
 {
 	gint32 dma_fd = -1, gem_fd = -1;
@@ -175,6 +175,7 @@ _get_source_handle(GstNxScaler *scaler, guint32 handle, guint32 index)
 		}
 	} else {
 		GST_ERROR_OBJECT(scaler, "index is over the size of in buffer (%d)", (int)index);
+		return -1;
 	}
 #endif
 	return scaler->src_dma_fds[index];
