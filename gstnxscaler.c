@@ -638,8 +638,6 @@ output_buffer_accel(GstNxScaler *scaler, GstBuffer *inbuf,
 	GST_BUFFER_PTS(buffer) = GST_BUFFER_PTS(inbuf);
 	gst_buffer_add_mmvideobuffer_meta(buffer, 0);
 	*outbuf = buffer;
-	if (ret != GST_FLOW_OK)
-		GST_ERROR_OBJECT(scaler, "ERROR \n");
 	GST_DEBUG_OBJECT(scaler, "Input Memory Buffer Unmap \n");
 	gst_memory_unmap(meta_block, &info);
 	return ret;
@@ -755,9 +753,6 @@ output_buffer_normal(GstNxScaler *scaler, GstBuffer *inbuf,
 	// set time info
 	GST_BUFFER_PTS(buffer) = GST_BUFFER_PTS(inbuf);
 	*outbuf = buffer;
-
-	if (ret != GST_FLOW_OK)
-		GST_ERROR_OBJECT(scaler, "ERROR \n");
 
 	GST_DEBUG_OBJECT(scaler, "Input Memory Buffer Unmap \n");
 	gst_memory_unmap(meta_block, &info);
