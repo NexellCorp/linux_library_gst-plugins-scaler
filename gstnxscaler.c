@@ -151,10 +151,10 @@ static void gst_nx_scaler_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
 /* GObject vmethod implementations */
-static guint32
+static gint32
 _get_source_handle(GstNxScaler *scaler, guint32 handle, guint32 index)
 {
-	guint32 dma_fd = -1, gem_fd = -1;
+	gint32 dma_fd = -1, gem_fd = -1;
 #ifdef USE_NATIVE_DRM_BUFFER
 	if(index<MAX_IN_BUFFER_COUNT) {
 		if (scaler->src_gem_fds[index] < 0) {
@@ -175,6 +175,7 @@ _get_source_handle(GstNxScaler *scaler, guint32 handle, guint32 index)
 		}
 	} else {
 		GST_ERROR_OBJECT(scaler, "index is over the size of in buffer (%d)", (int)index);
+		return -1;
 	}
 #endif
 	return scaler->src_dma_fds[index];
@@ -483,8 +484,6 @@ gst_nxscaler_accept_caps (GstBaseTransform *trans, GstPadDirection direction,
 	done:
 	{
 		GST_DEBUG_OBJECT (scaler, "accept-caps result: %d", ret);
-		if (ocaps)
-			gst_caps_unref (ocaps);
 		gst_caps_unref (templ);
 		gst_caps_unref (otempl);
 		return ret;
@@ -638,8 +637,6 @@ output_buffer_accel(GstNxScaler *scaler, GstBuffer *inbuf,
 	GST_BUFFER_PTS(buffer) = GST_BUFFER_PTS(inbuf);
 	gst_buffer_add_mmvideobuffer_meta(buffer, 0);
 	*outbuf = buffer;
-	if (ret != GST_FLOW_OK)
-		GST_ERROR_OBJECT(scaler, "ERROR \n");
 	GST_DEBUG_OBJECT(scaler, "Input Memory Buffer Unmap \n");
 	gst_memory_unmap(meta_block, &info);
 	return ret;
@@ -755,9 +752,6 @@ output_buffer_normal(GstNxScaler *scaler, GstBuffer *inbuf,
 	// set time info
 	GST_BUFFER_PTS(buffer) = GST_BUFFER_PTS(inbuf);
 	*outbuf = buffer;
-
-	if (ret != GST_FLOW_OK)
-		GST_ERROR_OBJECT(scaler, "ERROR \n");
 
 	GST_DEBUG_OBJECT(scaler, "Input Memory Buffer Unmap \n");
 	gst_memory_unmap(meta_block, &info);

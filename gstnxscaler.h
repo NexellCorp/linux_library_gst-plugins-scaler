@@ -85,7 +85,7 @@ struct _GstNxScaler
 	guint32 dst_height;
 
 	/* scaler driver fd*/
-	guint32 scaler_fd;
+	gint32 scaler_fd;
 
 	/* buffer */
 	guint32 buffer_count;
@@ -94,7 +94,7 @@ struct _GstNxScaler
 
 	GstCaps *src_caps;
 	/* source buffer handle */
-	guint32 src_fd;
+	gint32 src_fd;
 
 	guint32 buffer_type;
 
