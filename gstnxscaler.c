@@ -312,14 +312,13 @@ _destroy_buffer(GstNxScaler *scaler)
 			scaler->dma_fds[i] = -1;
 		}
 		if(scaler->gem_fds[i] >= 0) {
-			close(scaler->gem_fds[i]);
+			free_gem(scaler->drm_fd, scaler->gem_fds[i]);
 			scaler->gem_fds[i] = -1;
 		}
 	}
 
 	for (i = 0; i < MAX_IN_BUFFER_COUNT; i++) {
 		if(scaler->src_gem_fds[i] >= 0) {
-			close(scaler->src_gem_fds[i]);
 			scaler->src_gem_fds[i] = -1;
 			scaler->src_dma_fds[i] = -1;
 		}
@@ -819,11 +818,13 @@ static gboolean
 gst_nxscaler_stop (GstBaseTransform *trans)
 {
 	GstNxScaler *scaler = GST_NXSCALER(trans);
-	GST_DEBUG_OBJECT(scaler,"gst_nxscaler_transform_stop \n");	
+
+	GST_DEBUG_OBJECT(scaler,"ENTERED\n");
 	if(scaler->src_caps)
 		gst_caps_unref(scaler->src_caps);
 	_destroy_buffer(scaler);
 	nx_scaler_close(scaler->scaler_fd);
+	GST_DEBUG_OBJECT(scaler,"LEAVED\n");
 	return TRUE;
 }
 
