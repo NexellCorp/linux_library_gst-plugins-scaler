@@ -319,6 +319,7 @@ _destroy_buffer(GstNxScaler *scaler)
 
 	for (i = 0; i < MAX_IN_BUFFER_COUNT; i++) {
 		if(scaler->src_gem_fds[i] >= 0) {
+			free_gem(scaler->drm_fd, scaler->src_gem_fds[i]);
 			scaler->src_gem_fds[i] = -1;
 			scaler->src_dma_fds[i] = -1;
 		}
