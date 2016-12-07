@@ -1,5 +1,5 @@
 Name:    gst-plugins-scaler
-Version: 1.0.1
+Version: 1.0.2
 Release: 1
 License: LGPLv2+
 Summary: nexell scaler gstreamer plugin
