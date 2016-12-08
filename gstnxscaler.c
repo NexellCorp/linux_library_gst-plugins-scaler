@@ -319,6 +319,7 @@ _destroy_buffer(GstNxScaler *scaler)
 
 	for (i = 0; i < MAX_IN_BUFFER_COUNT; i++) {
 		if(scaler->src_gem_fds[i] >= 0) {
+			close(scaler->src_dma_fds[i]);
 			free_gem(scaler->drm_fd, scaler->src_gem_fds[i]);
 			scaler->src_gem_fds[i] = -1;
 			scaler->src_dma_fds[i] = -1;
@@ -333,6 +334,21 @@ _destroy_buffer(GstNxScaler *scaler)
 	return TRUE;
 #endif
 }
+
+static void _unmap_buffer(GstNxScaler *scaler)
+{
+	int i;
+
+	GST_DEBUG_OBJECT(scaler, "ENTERED");
+	for (i = 0; i < scaler->buffer_count; i++) {
+		if (scaler->vaddrs[i]) {
+			munmap(scaler->vaddrs[i], scaler->buffer_size);
+			scaler->vaddrs[i] = NULL;
+		}
+	}
+        GST_DEBUG_OBJECT(scaler, "LEAVED");
+}
+
 static GstCaps*
 _set_caps_init(GstNxScaler *scaler)
 {
@@ -823,6 +839,8 @@ gst_nxscaler_stop (GstBaseTransform *trans)
 	GST_DEBUG_OBJECT(scaler,"ENTERED\n");
 	if(scaler->src_caps)
 		gst_caps_unref(scaler->src_caps);
+	if (scaler->buffer_type == BUFFER_TYPE_NORMAL)
+		_unmap_buffer(scaler);
 	_destroy_buffer(scaler);
 	nx_scaler_close(scaler->scaler_fd);
 	GST_DEBUG_OBJECT(scaler,"LEAVED\n");
