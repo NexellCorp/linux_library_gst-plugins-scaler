@@ -256,7 +256,6 @@ _create_buffer(GstNxScaler *scaler)
 	int drm_fd;
 	int gem_fd;
 	int dma_fd;
-	//void *vaddr;
 	int i;
 	GST_DEBUG_OBJECT(scaler, "_create_buffer \n");
 	drm_fd = open_drm_device();
@@ -663,6 +662,8 @@ beach:
 	if (buffer) {
 		gst_buffer_unref((GstBuffer*)buffer);
 	}
+	if (mm_buf)
+		free(mm_buf);
 	ret = GST_FLOW_ERROR;
 	return ret;
 }
@@ -708,14 +709,7 @@ output_buffer_normal(GstNxScaler *scaler, GstBuffer *inbuf,
 		GST_ERROR_OBJECT(scaler, "failed to get gst buffer ");
 		goto beach;
 	}
-
-	data = (unsigned char *)malloc(scaler->buffer_size);
-	if (!data) {
-		GST_ERROR_OBJECT(scaler, "failed to alloc buffer for data");
-		goto beach;
-	}
-	memcpy(data, scaler->vaddrs[scaler->buffer_index], scaler->buffer_size);
-
+	data = (unsigned char *)scaler->vaddrs[scaler->buffer_index];
 	if (scaler->buffer_index < scaler->buffer_count - 1)
 		scaler->buffer_index++;
 	else
@@ -726,8 +720,8 @@ output_buffer_normal(GstNxScaler *scaler, GstBuffer *inbuf,
 					   scaler->buffer_size,
 					   0,
 					   scaler->buffer_size,
-					   data,
-					   free);
+					   NULL,
+					   NULL);
 
 	if (!meta_data) {
 		GST_ERROR_OBJECT(scaler, "failed to get gstmem ");
