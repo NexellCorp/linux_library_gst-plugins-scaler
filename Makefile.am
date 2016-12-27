@@ -2,6 +2,7 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
 AM_CFLAGS = \
 	$(WARN_CFLAGS) \
+	$(GLIB_CFLAGS) \
 	-I${includedir} \
 	-I./ \
 	-I${EXTRAPATH_INCLUDE} \
