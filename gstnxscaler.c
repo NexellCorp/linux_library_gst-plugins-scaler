@@ -183,7 +183,7 @@ _get_source_handle(GstNxScaler *scaler, guint32 handle, guint32 index)
 static GstFlowReturn
 _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler_context *scaler_ctx)
 {
-        guint32 src_y_stride = ALIGN(mm_buf->width[0], 32);
+        guint32 src_y_stride = mm_buf->stride_width[0];
         guint32 src_c_stride = ALIGN(src_y_stride >> 1, 16);
         guint32 dst_y_stride = ALIGN(scaler->dst_width, 8);
         guint32 dst_c_stride = ALIGN(dst_y_stride >> 1, 4);
