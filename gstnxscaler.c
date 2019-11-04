@@ -84,7 +84,7 @@ GST_DEBUG_CATEGORY_STATIC (gst_nx_scaler_debug);
 
 #define DEF_BUFFER_COUNT 8
 #define MAX_RESOLUTION_X 1920
-#define MAX_RESOLUTION_Y 1080
+#define MAX_RESOLUTION_Y 1280
 #define DEFAULT_RESOLUTION_X 1280
 #define DEFAULT_RESOLUTION_Y 720
 #define MINIMUM_CROP_X 320
@@ -130,7 +130,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
 	GST_STATIC_CAPS("video/x-raw, "
 	"format = (string) { I420 }, "
 	"width = (int)[1, 1920],"
-	"height = (int) [1, 1080]; ")
+	"height = (int) [1, 1280]; ")
 );
 
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
@@ -139,7 +139,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
 	GST_STATIC_CAPS("video/x-raw, "
 	"format = (string) { I420 }, "
 	"width = (int)[1, 1920],"
-	"height = (int) [1, 1080]; ")
+	"height = (int) [1, 1280]; ")
 );
 
 #define gst_nx_scaler_parent_class parent_class
@@ -185,7 +185,7 @@ _init_scale_context(GstNxScaler *scaler, MMVideoBuffer *mm_buf, struct nx_scaler
 {
         guint32 src_y_stride = mm_buf->stride_width[0];
         guint32 src_c_stride = ALIGN(src_y_stride >> 1, 16);
-        guint32 dst_y_stride = ALIGN(scaler->dst_width, 8);
+        guint32 dst_y_stride = ALIGN(scaler->dst_width, 32);
         guint32 dst_c_stride = ALIGN(dst_y_stride >> 1, 4);
 	GstFlowReturn ret = GST_FLOW_ERROR;
 
